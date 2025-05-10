@@ -210,7 +210,7 @@ elif mode == "Volume Calculator":
             V = F_A0 * V_F
             if rtype == "PFR":
                 st.success(f"Reactor Volume V = {V:.3f} L")
-            elif rtype == "PBR"
+            elif rtype == "PBR":
                 st.success(f"Weight of the Catalyst W = {V:.3f} Kgs")
 
         elif rtype == "Batch":
