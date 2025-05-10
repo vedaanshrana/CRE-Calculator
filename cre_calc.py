@@ -106,7 +106,7 @@ mode = st.sidebar.radio(
 
 # Welcome Screen
 if mode == "Welcome":
-    st.subheader("applications in industrial and scientific use-cases")
+    st.subheader("Applications in industrial and research use-cases")
 
     st.divider()
     st.write("Use the sidebar to choose an operation.")
@@ -208,8 +208,10 @@ elif mode == "Volume Calculator":
 
             V_F, _ = quad(integrand, 0, X)
             V = F_A0 * V_F
-            st.success(f"Reactor Volume V = {V:.3f} L")
-
+            if rtype == "PFR":
+                st.success(f"Reactor Volume V = {V:.3f} L")
+            elif rtype == "PBR"
+                st.success(f"Weight of the Catalyst W = {V:.3f} Kgs")
 
         elif rtype == "Batch":
             # For batch reactor, we need to relate all concentrations to C_A
