@@ -100,7 +100,8 @@ mode = st.sidebar.radio(
     [
         "Welcome",
         "Volume Calculator",
-        "Optimisation"
+        "Optimisation",
+        "Chemical Kinetics"
     ]
 )
 
@@ -110,6 +111,8 @@ if mode == "Welcome":
 
     st.divider()
     st.write("Use the sidebar to choose an operation.")
+
+# ... (previous imports remain the same)
 
 # MODULE 1: Volume Calculator
 elif mode == "Volume Calculator":
@@ -158,87 +161,157 @@ elif mode == "Volume Calculator":
     # Calculate delta and epsilon
     DELTA = (sum(stoich_ratios) / stoich_ratios[0])*(-1)
     EPSILON = (MolarFlowRates[0] / sum(MolarFlowRates)) * DELTA if r_phase == "Gas Phase" else 0
-    print(f'delta: {DELTA}')
-    print(f'epsilon: {EPSILON}')
-    print(f'theta: {theta}')
-    print(f'Conc: {conc_vars}')
-
+    
+    # Prepare figure for plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
     try:
         if rtype == "CSTR":
-            # For CSTR, we need to calculate exit concentrations
-            # First calculate the volumetric flow rate at exit
-            v = v_0 * (1 + EPSILON * X)
-
-            # Calculate exit molar flow rates
-            F_exit = {}
+            # Generate data for plot
+            X_values = np.linspace(0.01, 0.99, 50)
+            V_values = []
+            
+            for X_plot in X_values:
+                v = v_0 * (1 + EPSILON * X_plot)
+                F_exit = {}
+                for i, species in enumerate(all_species):
+                    F_exit[species] = F_A0 * (theta[i] + stoich_ratios[i] * X_plot)
+                
+                exit_concentrations = {}
+                for species in all_species:
+                    exit_concentrations[f"C_{species}"] = F_exit[species] / v
+                
+                args = [exit_concentrations.get(var, 0) for var in conc_vars]
+                r_A = rate_func(*args)
+                
+                if r_A != 0:
+                    V = (F_A0 * X_plot) / r_A
+                    V_values.append(V)
+                else:
+                    V_values.append(float('inf'))
+            
+            # Plot
+            ax.plot(X_values, V_values, 'b-', linewidth=2)
+            ax.set_xlabel('Conversion (X)')
+            ax.set_ylabel('Volume (L)')
+            ax.set_title('CSTR Volume vs Conversion')
+            ax.grid(True)
+            
+            # Current value marker
+            v_current = v_0 * (1 + EPSILON * X)
+            F_exit_current = {}
             for i, species in enumerate(all_species):
-                F_exit[species] = F_A0 * (theta[i] + stoich_ratios[i] * X)
-
-            # Calculate exit concentrations
-            exit_concentrations = {}
+                F_exit_current[species] = F_A0 * (theta[i] + stoich_ratios[i] * X)
+            
+            exit_concentrations_current = {}
             for species in all_species:
-                exit_concentrations[f"C_{species}"] = F_exit[species] / v
-
-            # Prepare arguments for rate function
-            args = [exit_concentrations.get(var, 0) for var in conc_vars]
-            r_A = rate_func(*args)
-
-            if r_A == 0:
+                exit_concentrations_current[f"C_{species}"] = F_exit_current[species] / v_current
+            
+            args_current = [exit_concentrations_current.get(var, 0) for var in conc_vars]
+            r_A_current = rate_func(*args_current)
+            
+            if r_A_current != 0:
+                V_current = (F_A0 * X) / r_A_current
+                ax.plot(X, V_current, 'ro', markersize=8, label=f'Current Value (X={X}, V={V_current:.2f} L)')
+                ax.legend()
+            
+            st.pyplot(fig)
+            
+            # Display calculated value
+            if r_A_current == 0:
                 st.error("Rate function returns zero. Division by zero.")
             else:
-                V = (F_A0 * X) / r_A
-                st.success(f"Reactor Volume V = {V:.3f} L")
-            print(f'rate cstr: {rate_func(*args)}')
+                st.success(f"Reactor Volume V = {V_current:.3f} L")
 
         elif rtype in ["PFR", "PBR"]:
             def integrand(X):
-                # Calculate all concentrations at this conversion
                 current_C = []
                 for k in range(len(theta)):
                     current_C.append((F_A0 * (theta[k] + stoich_ratios[k] * X)) / (v_0 * (1 + EPSILON * X)))
-
-                # Prepare concentration values
+                
                 conc_values = {f"C_{species}": current_C[i] for i, species in enumerate(all_species)}
                 args = [conc_values.get(var, 0) for var in conc_vars]
                 val = rate_func(*args)
                 if val == 0:
                     return float('inf')
                 return 1 / val
-
-
-            V_F, _ = quad(integrand, 0, X)
-            V = F_A0 * V_F
+            
+            # Generate data for plot
+            X_values = np.linspace(0.01, 0.99, 20)  # Fewer points for PFR/PBR due to integration
+            V_values = []
+            
+            for X_plot in X_values:
+                V_F, _ = quad(integrand, 0, X_plot)
+                V = F_A0 * V_F
+                V_values.append(V)
+            
+            # Plot
+            ax.plot(X_values, V_values, 'b-', linewidth=2)
+            ax.set_xlabel('Conversion (X)')
+            ax.set_ylabel('Volume (L)' if rtype == "PFR" else 'Catalyst Weight (kg)')
+            ax.set_title(f'{rtype} Volume vs Conversion')
+            ax.grid(True)
+            
+            # Current value
+            V_F_current, _ = quad(integrand, 0, X)
+            V_current = F_A0 * V_F_current
+            ax.plot(X, V_current, 'ro', markersize=8, 
+                   label=f'Current Value (X={X}, {"V" if rtype=="PFR" else "W"}={V_current:.2f} {"L" if rtype=="PFR" else "kg"})')
+            ax.legend()
+            
+            st.pyplot(fig)
+            
+            # Display calculated value
             if rtype == "PFR":
-                st.success(f"Reactor Volume V = {V:.3f} L")
+                st.success(f"Reactor Volume V = {V_current:.3f} L")
             elif rtype == "PBR":
-                st.success(f"Weight of the Catalyst W = {V:.3f} Kgs")
+                st.success(f"Weight of the Catalyst W = {V_current:.3f} kg")
 
         elif rtype == "Batch":
-            # For batch reactor, we need to relate all concentrations to C_A
-            # This assumes constant volume batch reactor
             def integrand(C_A):
-                # Calculate all other concentrations based on C_A
                 conc_values = {'C_A': C_A}
                 X_batch = 1 - C_A / C_A0
-
+                
                 for i, species in enumerate(all_species[1:], 1):
                     C_i = (F_A0 * (theta[i] - stoich_ratios[i] * X_batch)) / (v_0 * (1 + EPSILON * X_batch))
                     conc_values[f"C_{species}"] = C_i
-
+                
                 args = [conc_values.get(var, 0) for var in conc_vars]
                 val = rate_func(*args)
                 if val == 0:
                     return float('inf')
                 return 1 / val
-
-
-            C_final = C_A0 * (1 - X)
-            t, _ = quad(integrand, C_final, C_A0)
-            st.success(f"Reaction Time = {t:.3f} s")
+            
+            # Generate data for plot
+            X_values = np.linspace(0.01, 0.99, 20)  # Fewer points for Batch due to integration
+            t_values = []
+            
+            for X_plot in X_values:
+                C_final = C_A0 * (1 - X_plot)
+                t, _ = quad(integrand, C_final, C_A0)
+                t_values.append(t)
+            
+            # Plot
+            ax.plot(X_values, t_values, 'b-', linewidth=2)
+            ax.set_xlabel('Conversion (X)')
+            ax.set_ylabel('Time (s)')
+            ax.set_title('Batch Reactor Time vs Conversion')
+            ax.grid(True)
+            
+            # Current value
+            C_final_current = C_A0 * (1 - X)
+            t_current, _ = quad(integrand, C_final_current, C_A0)
+            ax.plot(X, t_current, 'ro', markersize=8, label=f'Current Value (X={X}, t={t_current:.2f} s)')
+            ax.legend()
+            
+            st.pyplot(fig)
+            
+            # Display calculated value
+            st.success(f"Reaction Time = {t_current:.3f} s")
 
     except Exception as e:
         st.error(f"Error during calculation: {str(e)}")
-
+        
 #MODULE 3: Optimisation
 elif mode == "Optimisation":
     st.subheader("Reactor Sequence Optimisation")
@@ -469,4 +542,3 @@ elif mode == "Optimisation":
 
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
-
