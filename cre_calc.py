@@ -101,7 +101,6 @@ mode = st.sidebar.radio(
         "Welcome",
         "Volume Calculator",
         "Optimisation",
-        "Chemical Kinetics"
     ]
 )
 
