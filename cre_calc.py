@@ -91,7 +91,7 @@ st.markdown(
 )
 
 # Main Title
-st.title("Chemical Reactor Calculator")
+st.title("Chemical Reactor Engineering Calculator")
 st.logo("logo.png", size = "large")
 
 # Sidebar Menu
@@ -106,7 +106,7 @@ mode = st.sidebar.radio(
 
 # Welcome Screen
 if mode == "Welcome":
-    st.subheader("Welcome to your Reactor Calculator")
+    st.subheader("applications in industrial and scientific use-cases")
 
     st.divider()
     st.write("Use the sidebar to choose an operation.")
