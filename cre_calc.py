@@ -317,7 +317,7 @@ elif mode == "Optimisation":
     st.caption("Upload your .csv file of X vs r_A (values should be negative)")
 
     # Step 1: Take input of F_A0 from user
-    F_A0 = st.number_input("Enter initial molar flow rate F_A0 (mol/s)", value=1.0, min_value=0.0)
+    F_A0 = st.number_input("Enter initial molar flow rate F_A0", value=1.0, min_value=0.0)
 
     uploaded_file = st.file_uploader("Choose a file", type="csv")
     if uploaded_file is not None:
